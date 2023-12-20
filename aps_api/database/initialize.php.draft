@@ -1,0 +1,36 @@
+<?php
+//includes
+require_once "dbcon.php";
+
+//Databse Connection
+$dbCon = new DbCon("../conf/conf.ini");
+$conn = $dbCon->getConn();
+
+$ini = parse_ini_file("../conf/conf.ini");
+
+try {
+	$sql = "CREATE DATABASE IF NOT EXISTS ".$ini["database"]." CHARACTER SET utf8 COLLATE utf8_unicode_ci;";
+	echo $sql;
+	$res = $conn->query($sql);
+	if($res === TRUE){
+	  echo "Database created successfully";
+	}
+	else{
+		echo "Database created.";
+	}
+
+} catch (PDOException $e) {
+	echo $e->getMessage();
+}
+
+
+$command = "mysql --user={$ini['username']} --password='{$ini['password']}' "
+ . "-h {$ini['hostname']} -D {$ini['database']} < {$ini["db_init_sql"]}";
+
+$output = shell_exec($command . '/shellexec.sql');
+
+
+$sql = "CREATE DATABASE myDB";
+
+
+?>

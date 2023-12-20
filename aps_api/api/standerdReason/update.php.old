@@ -1,0 +1,125 @@
+<?php
+
+/*
+Request URI format
+http://IP_ADDRESS:PORT_NUMBER/aps_api/api/standerdReason/update.php?token=JWT_TOKEN
+
+Request Body sample
+{
+    "id":"12",
+    "label":"Nic not provided"
+}
+
+*/
+
+
+//includes
+require_once "../../database/dbcon.php";
+require_once "../../request/paramCapture.php";
+require_once "../../request/jwtVerify.php";
+
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Methods: PUT");
+
+if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
+
+    //JwtValidation
+    try{
+        if(isset($_GET['token'])){
+            $token = trim($_GET['token']);
+            try{
+                //params of JWTValidation(token, admin, view, delete, create, update)
+                JWTValidation($token,true, false, false, false, true);
+            }
+            catch(Exception $e){
+                //echo $e;
+                header("Status: 400 Bad Request",false,400);
+                header("Error: Authentication Failed" ,false,400);
+                exit; 
+            }
+        }
+        else{
+            header("Status: 400 Bad Request",false,400);
+            header("Error: Authentication Token Required." ,false,400);
+            exit; 
+        }
+    }
+    catch(Exception $e){
+        header("Status: 400 Bad Request",false,400);
+        header("Error: Token might be timeout." ,false,400);
+        exit; 
+    }
+
+    //Databse Connection
+    $dbCon = new DbCon();
+    $conn = $dbCon->getConn();
+
+    //Take post request body
+    $requestBody = file_get_contents('php://input');
+
+
+    //Request body existance check
+    if($requestBody==null){
+        header("Status: 400 Bad Request",false,400);
+        header("Error: Request body does not exist.",false,400);
+        exit;
+    }
+
+   //define data atrributes
+    $reason_id=null;
+    $reason_label=null;
+
+    //Take data from http request body
+    try{
+        //Capture Required attributes
+        $reason_id=load_attribute($requestBody, "id",true);
+        $reason_label=load_attribute($requestBody, "label",true);
+
+        //capture optional attributes
+        //n/a
+    }
+    catch(Exception $e){
+        $msg = $e->getMessage();
+        header("Status: 400 Bad Request",false,400);
+        header("Error: $msg",false,400);
+        exit;
+    }
+
+
+    //Enter data to database
+    try{
+        // prepare sql and bind parameters
+        $sql = "UPDATE `standerd_status_reason` SET `reason_reason`=:reason_label WHERE `reason_id`=:reason_id";
+        $stmt = $conn->prepare($sql);
+        $stmt->bindParam(':reason_label', $reason_label);
+        $stmt->bindParam(':reason_id', $reason_id);
+        $stmt->execute();
+        $affected = $stmt->rowCount();
+
+        if($affected==1){
+            header("Status: 200 One item Updated",true,200);
+            exit;
+        }
+        elseif ($affected>1) {
+            header("Status: 500 Internal Server Error",false,500);
+            header("Error: Critical Error! Multiple Rows updated. Please ask for developer support",false,500);
+            exit;
+        }
+        else{
+            header("Status: 500 Internal Server Error",false,500);
+            header("Error: Database Update error.",false,500);
+            exit;
+        }
+    }
+    catch(PDOException $e){
+        $msg = $e->getMessage();
+        header("Status: 500 Internal Server Error",false,500);
+        header("Error: $msg",false,500);
+        exit;
+    }
+}
+else{
+    header("Status: 400 Bad Request",false,400);
+    header("Error: Invalid request method",false,400);
+    exit;
+}

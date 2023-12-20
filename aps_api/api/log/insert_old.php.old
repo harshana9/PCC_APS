@@ -1,0 +1,130 @@
+<?php
+
+/*
+Request URI format
+http://IP_ADDRESS:PORT_NUMBER/aps_api/api/log/insert.php?token=JWT_TOKEN
+
+Request Body sample
+{
+    "applicationId":16,
+    "status":10,
+    "reason":12,
+    "comment":"Need review"
+}
+
+* reason is optional
+* comment is optional
+*/
+
+
+//includes
+require_once "../../database/dbcon.php";
+require_once "../../request/paramCapture.php";
+require_once "../../request/jwtVerify.php";
+
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Methods: POST");
+
+$username_from_token=null;
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+    //JwtValidation
+    try{
+        if(isset($_GET['token'])){
+            $token = trim($_GET['token']);
+            try{
+                //params of JWTValidation(token, admin, view, delete, create, update)
+                $username_from_token=JWTValidation($token,false, false, false, false, true);
+            }
+            catch(Exception $e){
+                //echo $e;
+                header("Status: 400 Bad Request",false,400);
+                header("Error: Authentication Failed" ,false,400);
+                exit; 
+            }
+        }
+        else{
+            header("Status: 400 Bad Request",false,400);
+            header("Error: Authentication Token Required." ,false,400);
+            exit; 
+        }
+    }
+    catch(Exception $e){
+        header("Status: 400 Bad Request",false,400);
+        header("Error: Token might be timeout." ,false,400);
+        exit; 
+    }
+
+    //Databse Connection
+    $dbCon = new DbCon();
+    $conn = $dbCon->getConn();
+
+    //Take post request body
+    $requestBody = file_get_contents('php://input');
+
+    //Request body existance check
+    if($requestBody==null){
+        header("Status: 400 Bad Request",false,400);
+        header("Error: Request body does not exist.",false,400);
+        exit;
+    }
+
+   //define data atrributes
+    $app_id=null;
+    $status=null;
+    $reason=null;
+    $comment=null;
+
+    try{
+        //Capture Required attributes
+        $app_id=load_attribute($requestBody, "applicationId",true);
+        $status=load_attribute($requestBody, "status",true);
+
+        //capture optional attributes
+        $reason=load_attribute($requestBody, "reason");
+        $comment=load_attribute($requestBody, "comment");
+    }
+    catch(Exception $e){
+        $msg = $e->getMessage();
+        header("Status: 400 Bad Request",false,400);
+        header("Error: $msg",false,400);
+        exit;
+    }
+
+    //Enter data to database
+    try{
+        $count=0;
+        // prepare sql and bind parameters
+        $sql = "CALL create_log(:app_id, :status, :reason, :comment, :username);";
+        $stmt = $conn->prepare($sql);
+        $stmt->bindParam(':app_id', $app_id);
+        $stmt->bindParam(':status', $status);
+        $stmt->bindParam(':reason', $reason);
+        $stmt->bindParam(':comment', $comment);
+        $stmt->bindParam(':username', $username_from_token);
+        $stmt->execute();
+        $count += $stmt->rowCount();
+
+        if($count>0){
+            header("Status: 200 Application Created ($count items)",true,200);
+            exit;
+        }
+        else{
+            header("Status: 500 Internal Server Error",false,500);
+            header("Error: Database insert error.",false,500);
+            exit;
+        }
+    }
+    catch(PDOException $e){
+        $msg = $e->getMessage();
+        header("Status: 500 Internal Server Error",false,500);
+        header("Error: $msg",false,500);
+        exit;
+    }
+}
+else{
+    header("Status: 400 Bad Request",false,400);
+    header("Error: Invalid request method",false,400);
+    exit;
+}

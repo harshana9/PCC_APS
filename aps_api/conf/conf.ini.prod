@@ -1,0 +1,34 @@
+;Database Configurations
+hostname = 'localhost'
+username = 'root'
+password = ''
+database = 'aps2'
+db_init_sql='http://localhost/aps_api/databse/init.sql'
+
+;JWT configurations
+jwt_token_path='http://localhost/aps_api/request/php-jwt'
+;valid time is in seconds
+token_valid_time = 18000
+time_zone='Asia/Kolkata'
+jwt_secret_key='this_is_my_secrect'
+
+
+;SMTP Mail Configurations
+HOST='192.168.2.3'
+PORT=25
+USERNAME='mpos@peoplesbank.lk'
+FROM='mpos@peoplesbank.lk'
+PASSWORD='mpos@600'
+
+;Letterhead Infomation
+COMPANY="PEOPLE'S CARD CENTER"
+TELEPHONE='011-2490490'
+ADDRESSL1='2nd Floor, No. 1161,'
+ADDRESSL2='Maradana Rd, PLC Building, Colombo – 08.'
+EMAIL='card@peoplesbank.lk'
+
+;idal Logout time(Token will not be destoried)
+TIMEOUT=5
+
+;USER DEFAULTS
+PASSWORD='password'

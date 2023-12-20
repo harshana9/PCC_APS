@@ -1,0 +1,93 @@
+<?php
+
+/*
+Request URI format
+http://IP_ADDRESS:PORT_NUMBER/aps_api/api/log/view.php?token=JWT_TOKEN?id=APPLICATION_ID
+
+*/
+
+//includes
+require_once "../../database/dbcon.php";
+require_once "../../request/paramCapture.php";
+require_once "../../request/jwtVerify.php";
+
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Methods: GET");
+
+if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+
+    //JwtValidation
+    try{
+        if(isset($_GET['token'])){
+            $token = trim($_GET['token']);
+            try{
+                //params of JWTValidation(token, damin, view, delete, create, update)
+                JWTValidation($token,false, true, false, false, false);
+            }
+            catch(Exception $e){
+                //echo $e;
+                header("Status: 400 Bad Request",false,400);
+                header("Authentication Failed" ,false,400);
+                exit; 
+            }
+        }
+        else{
+            throw new Exception("Error: Authentication Token Required.");
+        }
+    }
+    catch(Exception $e){
+        throw new Exception("Error: Token might be timeout.");
+    }
+
+    //define data atrributes
+    $returnBody=array();
+    $app_id=null;
+
+    //Request Patameter existance check
+    if(isset($_GET["id"])){
+        $app_id=$_GET["id"];
+    }
+
+    //Databse Connection
+    $dbCon = new DbCon();
+    $conn = $dbCon->getConn();
+
+    //Select data from database
+    try{
+        // prepare sql and bind parameters
+        $sql = "SELECT `application_status_log`.`log_id`, `application_status_log`.`log_datetime`,`standerd_status`.`sts_name`, `standerd_status_reason`.`reason_reason`, `application_status_log`.`log_comments`, `user`.`usr_username` FROM `application_status_log` LEFT JOIN `standerd_status` ON `application_status_log`.`log_status`=`standerd_status`.`sts_id` LEFT JOIN `standerd_status_reason` ON `application_status_log`.`log_status_reason_id`=`standerd_status_reason`.`reason_id` LEFT JOIN `user` ON `application_status_log`.`log_user`=`user`.`usr_id` WHERE `application_status_log`.`log_app_id`=:log_app_id ORDER BY `application_status_log`.`log_datetime`;";
+        $stmt = $conn->prepare($sql);
+        $stmt->bindParam(':log_app_id', $app_id);
+        $stmt->execute();
+        $result = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+        
+        if(count($result)>0){
+            $returnItem=array();
+            foreach($result as $row) {
+                $returnItem["log_id"]=$row["log_id"];
+                $returnItem["datetime"]=$row["log_datetime"];
+                $returnItem["status"]=$row["sts_name"];
+                $returnItem["reason"]=$row["reason_reason"];
+                $returnItem["comment"]=$row["log_comments"];
+                $returnItem["user"]=$row["usr_username"];
+                array_push($returnBody, $returnItem);
+            }
+        }
+        
+        header("Status: 200 Request Fulfilled.",true,200);
+        echo  json_encode($returnBody);
+        exit;
+    }
+    catch(PDOException $e){
+        $msg = $e->getMessage();
+        header("Status: 500 Internal Server Error",false,500);
+        header("Error: $msg",false,500);
+        exit;
+    }
+}
+else{
+    header("Status: 400 Bad Request",false,400);
+    header("Error: RInvalid request method",false,400);
+    exit;    
+}
+?>
